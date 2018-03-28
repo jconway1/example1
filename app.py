@@ -31,21 +31,17 @@ from airflow import jobs
 from airflow import settings
 from airflow import configuration
 
-class URLPrefixMiddleware(object):
-
-    def __init__(self, app, prefix=''):
-        self.app = app
-        self.prefix = prefix
-
-    def __call__(self, environ, start_response):
-
-        if environ['PATH_INFO'].startswith(self.prefix):
-            environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
-            environ['SCRIPT_NAME'] = self.prefix
-            return self.app(environ, start_response)
-        else:
-            start_response('404', [('Content-Type', 'text/plain')])
-            return ["This url does not belong to the app.".encode()]
+class ReverseProxied(object):
+  def __init__(self, app):
+      self.app = app
+  def __call__(self, environ, start_response):
+      script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
+      if script_name:
+          environ['SCRIPT_NAME'] = script_name
+          path_info = environ['PATH_INFO']
+          if path_info.startswith(script_name):
+              environ['PATH_INFO'] = path_info[len(script_name):]
+      return self.app(environ, start_response)
 
 
 def create_app(config=None, testing=False):
